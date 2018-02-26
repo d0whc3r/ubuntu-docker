@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:16.04
 RUN apt-get update && \
     apt-get upgrade -yq && \
     apt-get install -yq apt-transport-https ca-certificates curl software-properties-common && \
