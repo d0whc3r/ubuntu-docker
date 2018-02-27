@@ -18,6 +18,7 @@ RUN wget -O /usr/local/bin/dind "https://raw.githubusercontent.com/docker/docker
     chmod +x /usr/local/bin/dind
 
 COPY dockerd-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/dockerd-entrypoint.sh
 
 VOLUME /var/lib/docker
 EXPOSE 2375
