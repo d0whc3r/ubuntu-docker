@@ -1,21 +1,37 @@
-FROM ubuntu:16.04
-RUN apt-get update && \
-    apt-get install -yq apt-utils && \
-    apt-get upgrade -yq
+FROM docker:17.12
 
-RUN apt-get install -yq btrfs-tools e2fsprogs iptables xfsprogs xz-utils pigz zfsutils-linux wget
+# https://github.com/docker/docker/blob/master/project/PACKAGERS.md#runtime-dependencies
+RUN set -eux; \
+	apk add --no-cache \
+		btrfs-progs \
+		e2fsprogs \
+		e2fsprogs-extra \
+		iptables \
+		xfsprogs \
+		xz \
+	; \
+# only install zfs if it's available for the current architecture
+# https://git.alpinelinux.org/cgit/aports/tree/main/zfs/APKBUILD?h=3.6-stable#n9 ("all !armhf !ppc64le" as of 2017-11-01)
+# "apk info XYZ" exits with a zero exit code but no output when the package exists but not for this arch
+	if zfs="$(apk info --no-cache --quiet zfs)" && [ -n "$zfs" ]; then \
+		apk add --no-cache zfs; \
+	fi
 
-# Docker install
-RUN apt-get install -yq apt-transport-https ca-certificates curl software-properties-common && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
-    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
-    apt-get update && \
-    apt-get install -yq docker-ce
+# TODO aufs-tools
 
-ENV DIND_COMMIT 3b5fac462d21ca164b3778647420016315289034
+# set up subuid/subgid so that "--userns-remap=default" works out-of-the-box
+RUN set -x \
+	&& addgroup -S dockremap \
+	&& adduser -S -G dockremap dockremap \
+	&& echo 'dockremap:165536:65536' >> /etc/subuid \
+	&& echo 'dockremap:165536:65536' >> /etc/subgid
 
-RUN wget -O /usr/local/bin/dind "https://raw.githubusercontent.com/docker/docker/${DIND_COMMIT}/hack/dind" && \
-    chmod +x /usr/local/bin/dind
+RUN set -ex; \
+	apk add --no-cache --virtual .fetch-deps libressl; \
+	apk del .fetch-deps
+
+COPY dind /usr/local/bin/
+RUN chmod +x /usr/local/bin/dind
 
 COPY dockerd-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/dockerd-entrypoint.sh
